@@ -1,6 +1,6 @@
 /** @file equ_filters.h
  *
- * 	@brief Header file containing 5 band equalizer filters
+ * 	@brief Header file containing 5 band equalizer FIR filters
  */
 
 #define NUM_TAPS 500
