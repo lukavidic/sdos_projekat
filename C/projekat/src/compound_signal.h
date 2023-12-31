@@ -1,4 +1,15 @@
+/** @file compound_signal.h
+ *
+ * 	@brief Header file with test audio signal samples generated in python
+ */
+
 #define LEN 30000
+#define SAMPLE_FREQ 10000
+
+/*
+ * The test signal is a composite periodic signal consisting of 9 sine waves with
+ * the following frequencies (in Hz) [50, 120, 260, 440, 520, 720, 1020, 1250, 1400]
+ */
 
 const float pm compound_signal[LEN] = {
 	0.0000000,0.5740316,0.9172101,0.9287543,0.6868547,

@@ -1,20 +1,9 @@
-/** @file equalizer.h
+/** @file equ_filters.h
  *
- * 	@brief Header file containing 5 band equalizer filters and function implementation
+ * 	@brief Header file containing 5 band equalizer filters
  */
 
-#include "filter.h"
-#include <stdio.h>
-#include <math.h>
-
 #define NUM_TAPS 500
-
-// Gain parameters for each band in dB
-const int GAIN1 = -20;
-const int GAIN2 = 40;
-const int GAIN3 = 20;
-const int GAIN4 = -20;
-const int GAIN5 = -40;
 
 /*
  * Low pass filter coefficients with cutoff frequency of 300Hz
@@ -545,54 +534,3 @@ const float pm FILTER_5[NUM_TAPS] = {
 	0.0001020,0.0000623,0.0000063,-0.0000160,-0.0000054,
 	0.0000051,-0.0000156,-0.0001296,-0.0008631,0.0001154
 };
-
-/*
- * @brief Applies 5 band equalization to the passed audio signal
- * @param[in] signal Pointer to the audio signal data
- * @param[out] output Pointer to the output array initialized to all zeros
- * @param[in] temp Temporary array for storing filtered intermediate results
- * with len + NUM_TAPS - 1 size
- * @param[in] len Size of input signal array
- * */
-void equalize(float* restrict signal, float* output, float* temp, int len)
-{
-	printf("ENTERED EQUALIZER FUNCTION\n");
-	// Convert db gain into unitless gain
-	float gain1, gain2, gain3, gain4, gain5;
-	gain1 = pow(10, GAIN1/20);
-	gain2 = pow(10, GAIN2/20);
-	gain3 = pow(10, GAIN3/20);
-	gain4 = pow(10, GAIN4/20);
-	gain5 = pow(10, GAIN5/20);
-	// Clear temp register for every filtering
-	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
-		temp[i] = 0.0;
-	convolve(signal, len, FILTER_1, NUM_TAPS, temp);
-	for(int i = 0; i < len; i++)
-		output[i] += gain1 * temp[i + NUM_TAPS/2 - 1];
-	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
-		temp[i] = 0.0;
-	printf("FINISHED 1ST FILTER\n");
-	convolve(signal, len, FILTER_2, NUM_TAPS, temp);
-	for(int i = 0; i < len; i++)
-		output[i] += gain2 * temp[i + NUM_TAPS/2 - 1];
-	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
-		temp[i] = 0.0;
-	printf("FINISHED 2ND FILTER\n");
-	convolve(signal, len, FILTER_3, NUM_TAPS, temp);
-	for(int i = 0; i < len; i++)
-		output[i] += gain3 * temp[i + NUM_TAPS/2 - 1];
-	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
-		temp[i] = 0.0;
-	printf("FINISHED 3RD FILTER\n");
-	convolve(signal, len, FILTER_4, NUM_TAPS, temp);
-	for(int i = 0; i < len; i++)
-		output[i] += gain4 * temp[i + NUM_TAPS/2 - 1];
-	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
-		temp[i] = 0.0;
-	printf("FINISHED 4TH FILTER\n");
-	convolve(signal, len, FILTER_1, NUM_TAPS, temp);
-	for(int i = 0; i < len; i++)
-		output[i] += gain1 * temp[i + NUM_TAPS/2 - 1];
-	printf("FINISHED LAST FILTER\n");
-}
