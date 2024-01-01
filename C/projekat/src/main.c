@@ -28,6 +28,10 @@ float f_high = 1500.0;
 float wah_freq = 1800.0;
 float damp = 0.1;
 
+// Parameters for flanger (default values)
+float delay = 0.0008;
+float f_osc = 8.0;
+
 // Index for memory allocation
 int index = 0;
 
@@ -35,11 +39,9 @@ int index = 0;
  * @brief Applies 5 band equalization to the passed audio signal
  * @param[in] signal Pointer to the audio signal data
  * @param[out] output Pointer to the output array initialized to all zeros
- * @param[in] temp Temporary array for storing filtered intermediate results
- * with len + NUM_TAPS - 1 size
  * @param[in] len Size of input and output signal array
  * */
-void equalize(float* restrict signal, float* output, float* temp, int len);
+void equalize(float* restrict signal, float* output, int len);
 
 /*
  * @brief Applies the wah-wah effect on the given audio signal
@@ -48,6 +50,14 @@ void equalize(float* restrict signal, float* output, float* temp, int len);
  * @param[in] len Size of input and output signal array
  * */
 void wah_wah(float* restrict signal, float* output, int len);
+
+/*
+ * @brief Applies the flanger effect on the given audio signal
+ * @param[in] signal Pointer to the audio signal data
+ * @param[out] output Pointer to the output array initialized to all zeros
+ * @param[in] len Size of input and output signal array
+ * */
+void flanger(float* restrict signal, float* output, int len);
 
 // Reserve ~500kB of SRAM memory for signals
 #pragma section("seg_sram")
@@ -59,7 +69,6 @@ int main(int argc, char *argv[])
 	int uid = 999;
 	float* signal = NULL;
 	float* result = NULL;
-	float* temp = NULL;
 	index = heap_install(sram_heap, sizeof(sram_heap), uid);
 	if (index < 0)
 	{
@@ -67,12 +76,14 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	signal = (float *)heap_malloc(index, LEN*sizeof(float));
-	if(signal == NULL){
+	if(signal == NULL)
+	{
 		printf("Memory allocation failed (signal)\n");
 		return -1;
 	}
 	result = (float *)heap_malloc(index, LEN*sizeof(float));
-	if(result == NULL){
+	if(result == NULL)
+	{
 			printf("Memory allocation failed (eq_signal)\n");
 			return -1;
 	}
@@ -80,18 +91,12 @@ int main(int argc, char *argv[])
 		signal[i] = compound_signal[i];
 	for(int i = 0; i < LEN; i++)
 		result[i] = 0.0;
-	wah_wah(signal, result, LEN);
-	/* EQUALIZATOR
-	temp = (float *)heap_malloc(index, (LEN+NUM_TAPS-1)*sizeof(float));
-	if(temp == NULL){
-		printf("Memory allocation failed (temp)\n");
-		return -1;
-	}
-	equalize(signal, result, temp, LEN);
-	heap_free(index, temp);
-	*/
-	fp = fopen("../output_files/wah_signal.txt", "w");
-	if(fp == NULL){
+	//wah_wah(signal, result, LEN);
+	//equalize(signal, result, LEN);
+	//flanger(signal, result, LEN);
+	fp = fopen("../output_files/flanged_signal.txt", "w");
+	if(fp == NULL)
+	{
 		printf("File opening failed\n");
 		return -1;
 	}
@@ -103,12 +108,19 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void equalize(float* restrict signal, float* output, float* temp, int len)
+void equalize(float* restrict signal, float* output, int len)
 {
 	// Calculate FIR filter delay
 	int delay = (NUM_TAPS - 1) / 2;
 	// Convert db gain into unitless gain
 	float gain1, gain2, gain3, gain4, gain5;
+	float* temp = NULL;
+	temp = (float *)heap_malloc(index, (len+NUM_TAPS-1)*sizeof(float));
+	if(temp == NULL)
+	{
+		printf("Memory allocation failed (temp)\n");
+		return;
+	}
 	gain1 = pow(10, GAIN1/20);
 	gain2 = pow(10, GAIN2/20);
 	gain3 = pow(10, GAIN3/20);
@@ -140,6 +152,7 @@ void equalize(float* restrict signal, float* output, float* temp, int len)
 	convolve(signal, len, FILTER_5, NUM_TAPS, temp);
 	for(int i = 0; i < len; i++)
 		output[i] += gain5 * temp[i + delay];
+	heap_free(index, temp);
 }
 
 void wah_wah(float* restrict signal, float* output, int len)
@@ -159,20 +172,25 @@ void wah_wah(float* restrict signal, float* output, int len)
 	 * to avoid if and break statements inside loops which create modulator
 	 */
 	cutoff_freq = (float *)heap_malloc(index, (len + 2*max_iter)*sizeof(float));
-	if(cutoff_freq == NULL){
+	if(cutoff_freq == NULL)
+	{
 		printf("Memory allocation failed (cutoff_freq)\n");
 		return;
 	}
 	cutoff_freq[0] = f_low;
-	for(; i < max_iter; i++){
+	for(; i < max_iter; i++)
+	{
 		cutoff_freq[i] = cutoff_freq[i-1] + inc;
 	}
-	while(i < len){
-		for(int j = (max_iter - 1); j >= 0; j--){
+	while(i < len)
+	{
+		for(int j = (max_iter - 1); j >= 0; j--)
+		{
 			cutoff_freq[i] = cutoff_freq[j];
 			i++;
 		}
-		for(int j = 0; j < max_iter; j++){
+		for(int j = 0; j < max_iter; j++)
+		{
 			cutoff_freq[i] = cutoff_freq[j];
 			i++;
 		}
@@ -184,11 +202,41 @@ void wah_wah(float* restrict signal, float* output, int len)
 	yh = signal[0];
 	output[0] = F1 * yh;
 	yl = F1 * output[0];
-	for(i = 1; i < len; i++){
+	for(i = 1; i < len; i++)
+	{
 		yh = signal[i] - yl - Q1 * output[i-1];
 		output[i] = F1 * yh + output[i-1];
 		yl = F1 * output[i] + yl;
 		F1 = 2 * sinf(f1_param * cutoff_freq[i]);
 	}
 	heap_free(index, cutoff_freq);
+}
+
+void flanger(float* restrict signal, float* output, int len)
+{
+	float* delay_line = NULL;
+	float beta, frac, w_osc, R;
+	int N, dl_len;
+	w_osc = 2 * PI * f_osc / SAMPLE_FREQ;
+	R = floorf(delay * SAMPLE_FREQ + 0.5);
+	dl_len = 2 * ((int)R + 1);
+	delay_line = (float*)heap_malloc(index, dl_len);
+	if(delay_line == NULL)
+	{
+		printf("Memory allocation failed (delay_line)\n");
+		return;
+	}
+	for(int i = 0; i < dl_len; i++)
+		delay_line[i] = 0.0;
+	for(int i = 0; i < len; i++)
+	{
+		beta = R * (1 + sinf(w_osc*i));
+		N = (int)(floorf(beta));
+		frac = beta - N;
+		for(int j = (dl_len - 1); j > 0; j--)
+			delay_line[j] = delay_line[j-1];
+		delay_line[0] = signal[i];
+		output[i] = delay_line[N+1] * frac + delay_line[N] * (1 - frac) + signal[i];
+	}
+	heap_free(index, delay_line);
 }
