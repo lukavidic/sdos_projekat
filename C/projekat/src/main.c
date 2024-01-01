@@ -1,6 +1,6 @@
 /** @file main.c
  *
- * 	@brief Source file implementing and applying audio effect algorithms
+ * 	@brief Source file implementing and applying audio effects algorithms
  */
 
 #include <stdio.h>
@@ -29,8 +29,12 @@ float wah_freq = 1800.0;
 float damp = 0.1;
 
 // Parameters for flanger (default values)
-float delay = 0.0008;
-float f_osc = 8.0;
+float delay = 0.001;
+float f_osc = 1.0;
+
+// Parameters for tremolo (default values)
+float alpha = 0.5;
+float f_mod = 1;
 
 // Index for memory allocation
 int index = 0;
@@ -59,9 +63,17 @@ void wah_wah(float* restrict signal, float* output, int len);
  * */
 void flanger(float* restrict signal, float* output, int len);
 
+/*
+ * @brief Applies the flanger effect on the given audio signal
+ * @param[in] signal Pointer to the audio signal data
+ * @param[out] output Pointer to the output array initialized to all zeros
+ * @param[in] len Size of input and output signal array
+ * */
+void tremolo(float* restrict signal, float* output, int len);
+
 // Reserve ~500kB of SRAM memory for signals
 #pragma section("seg_sram")
-static char sram_heap[500000];
+static char heap_mem[500000];
 
 int main(int argc, char *argv[])
 {
@@ -69,7 +81,7 @@ int main(int argc, char *argv[])
 	int uid = 999;
 	float* signal = NULL;
 	float* result = NULL;
-	index = heap_install(sram_heap, sizeof(sram_heap), uid);
+	index = heap_install(heap_mem, sizeof(heap_mem), uid);
 	if (index < 0)
 	{
 		printf("Heap installation failed\n");
@@ -94,7 +106,8 @@ int main(int argc, char *argv[])
 	//wah_wah(signal, result, LEN);
 	//equalize(signal, result, LEN);
 	//flanger(signal, result, LEN);
-	fp = fopen("../output_files/flanged_signal.txt", "w");
+	tremolo(signal, result, LEN);
+	fp = fopen("../output_files/tremolo_signal.txt", "w");
 	if(fp == NULL)
 	{
 		printf("File opening failed\n");
@@ -239,4 +252,22 @@ void flanger(float* restrict signal, float* output, int len)
 		output[i] = delay_line[N+1] * frac + delay_line[N] * (1 - frac) + signal[i];
 	}
 	heap_free(index, delay_line);
+}
+
+void tremolo(float* restrict signal, float* output, int len)
+{
+	float* carrier = NULL;
+	float w_mod = 2 * PI * f_mod / SAMPLE_FREQ;
+	// Generate carrier signal with given modulation frequency
+	carrier = (float*)heap_malloc(index, len);
+	if(carrier == NULL)
+	{
+		printf("Memory allocation failed (carrier)\n");
+		return;
+	}
+	for(int i = 0; i < len; i++)
+		carrier[i] = sinf(w_mod*i);
+	// Generate tremolo output
+	for(int i = 0; i < len; i++)
+		output[i] = (1 + alpha * carrier[i]) * signal[i];
 }
