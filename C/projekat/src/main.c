@@ -11,6 +11,8 @@
 #include "filter.h"
 #include "equ_filters.h"
 
+//#define PRINT_OUTPUT
+
 #define PI 3.141592
 
 // TODO: Try to implement parameter configuration with ADSP buttons
@@ -106,16 +108,18 @@ int main(int argc, char *argv[])
 	//wah_wah(signal, result, LEN);
 	//equalize(signal, result, LEN);
 	//flanger(signal, result, LEN);
-	tremolo(signal, result, LEN);
-	fp = fopen("../output_files/tremolo_signal.txt", "w");
-	if(fp == NULL)
-	{
-		printf("File opening failed\n");
-		return -1;
-	}
-	for(int i = 0; i < LEN; i++)
-		fprintf(fp,"%f\n", result[i]);
-	fclose(fp);
+	//tremolo(signal, result, LEN);
+	#ifdef PRINT_OUTPUT
+		fp = fopen("../output_files/tremolo_signal.txt", "w");
+		if(fp == NULL)
+		{
+			printf("File opening failed\n");
+			return -1;
+		}
+		for(int i = 0; i < LEN; i++)
+			fprintf(fp,"%f\n", result[i]);
+		fclose(fp);
+	#endif
 	heap_free(index, signal);
 	heap_free(index, result);
 	return 0;
@@ -256,18 +260,18 @@ void flanger(float* restrict signal, float* output, int len)
 
 void tremolo(float* restrict signal, float* output, int len)
 {
-	float* carrier = NULL;
+	float* mod_signal = NULL;
 	float w_mod = 2 * PI * f_mod / SAMPLE_FREQ;
-	// Generate carrier signal with given modulation frequency
-	carrier = (float*)heap_malloc(index, len);
-	if(carrier == NULL)
+	// Generate modulating signal with given modulation frequency
+	mod_signal = (float*)heap_malloc(index, len);
+	if(mod_signal == NULL)
 	{
 		printf("Memory allocation failed (carrier)\n");
 		return;
 	}
 	for(int i = 0; i < len; i++)
-		carrier[i] = sinf(w_mod*i);
+		mod_signal[i] = sinf(w_mod*i);
 	// Generate tremolo output
 	for(int i = 0; i < len; i++)
-		output[i] = (1 + alpha * carrier[i]) * signal[i];
+		output[i] = (1 + alpha * mod_signal[i]) * signal[i];
 }
