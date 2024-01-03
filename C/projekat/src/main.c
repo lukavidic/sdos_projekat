@@ -3,15 +3,19 @@
  * 	@brief Source file implementing and applying audio effects algorithms
  */
 
+#include <sys/platform.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <cycle_count.h>
 #include "compound_signal.h"
 #include "filter.h"
 #include "equ_filters.h"
+#include "adi_initialize.h"
 
 //#define PRINT_OUTPUT
+#define PROFILING
 
 #define PI 3.141592
 
@@ -40,6 +44,12 @@ float f_mod = 1;
 
 // Index for memory allocation
 int index = 0;
+
+#ifdef PROFILING
+	// Profiling variables
+	cycle_t start;
+	cycle_t end;
+#endif
 
 /*
  * @brief Applies 5 band equalization to the passed audio signal
@@ -79,6 +89,7 @@ static char heap_mem[500000];
 
 int main(int argc, char *argv[])
 {
+	adi_initComponents();
 	FILE* fp = NULL;
 	int uid = 999;
 	float* signal = NULL;
@@ -105,12 +116,20 @@ int main(int argc, char *argv[])
 		signal[i] = compound_signal[i];
 	for(int i = 0; i < LEN; i++)
 		result[i] = 0.0;
-	//wah_wah(signal, result, LEN);
+	printf("ALG\n");
+	#ifdef PROFILING
+		START_CYCLE_COUNT(start);
+	#endif
+	wah_wah(signal, result, LEN);
 	//equalize(signal, result, LEN);
 	//flanger(signal, result, LEN);
 	//tremolo(signal, result, LEN);
+	#ifdef PROFILING
+		STOP_CYCLE_COUNT(end, start);
+		PRINT_CYCLES("Broj ciklusa: ", end);
+	#endif
 	#ifdef PRINT_OUTPUT
-		fp = fopen("../output_files/tremolo_signal.txt", "w");
+		fp = fopen("../output_files/wah_signal.txt", "w");
 		if(fp == NULL)
 		{
 			printf("File opening failed\n");
@@ -129,7 +148,6 @@ void equalize(float* restrict signal, float* output, int len)
 {
 	// Calculate FIR filter delay
 	int delay = (NUM_TAPS - 1) / 2;
-	// Convert db gain into unitless gain
 	float gain1, gain2, gain3, gain4, gain5;
 	float* temp = NULL;
 	temp = (float *)heap_malloc(index, (len+NUM_TAPS-1)*sizeof(float));
@@ -138,35 +156,46 @@ void equalize(float* restrict signal, float* output, int len)
 		printf("Memory allocation failed (temp)\n");
 		return;
 	}
+	// Convert db gain into unitless gain
 	gain1 = pow(10, GAIN1/20);
 	gain2 = pow(10, GAIN2/20);
 	gain3 = pow(10, GAIN3/20);
 	gain4 = pow(10, GAIN4/20);
 	gain5 = pow(10, GAIN5/20);
 	// Clear temp register for every filtering
+	//#pragma SIMD_for
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_1, NUM_TAPS, temp);
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain1 * temp[i + delay];
+	//#pragma SIMD_for
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_2, NUM_TAPS, temp);
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain2 * temp[i + delay];
+	//#pragma SIMD_for
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_3, NUM_TAPS, temp);
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain3 * temp[i + delay];
+	//#pragma SIMD_for
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_4, NUM_TAPS, temp);
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain4 * temp[i + delay];
+	//#pragma SIMD_for
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_5, NUM_TAPS, temp);
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain5 * temp[i + delay];
 	heap_free(index, temp);
@@ -269,9 +298,11 @@ void tremolo(float* restrict signal, float* output, int len)
 		printf("Memory allocation failed (carrier)\n");
 		return;
 	}
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		mod_signal[i] = sinf(w_mod*i);
 	// Generate tremolo output
+	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] = (1 + alpha * mod_signal[i]) * signal[i];
 }
