@@ -83,9 +83,11 @@ void flanger(float* restrict signal, float* output, int len);
  * */
 void tremolo(float* restrict signal, float* output, int len);
 
-// Reserve ~500kB of SRAM memory for signals
+// Reserve 500kB of SRAM memory for signals
 #pragma section("seg_sram")
-static char heap_mem[500000];
+static char heap_mem[512000];
+
+float dm state[NUM_TAPS + 1];
 
 int main(int argc, char *argv[])
 {
@@ -116,11 +118,10 @@ int main(int argc, char *argv[])
 		signal[i] = compound_signal[i];
 	for(int i = 0; i < LEN; i++)
 		result[i] = 0.0;
-	printf("ALG\n");
 	#ifdef PROFILING
 		START_CYCLE_COUNT(start);
 	#endif
-	wah_wah(signal, result, LEN);
+	//wah_wah(signal, result, LEN);
 	//equalize(signal, result, LEN);
 	//flanger(signal, result, LEN);
 	//tremolo(signal, result, LEN);
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
 		PRINT_CYCLES("Broj ciklusa: ", end);
 	#endif
 	#ifdef PRINT_OUTPUT
-		fp = fopen("../output_files/wah_signal.txt", "w");
+		fp = fopen("../output_files/equ_signal.txt", "w");
 		if(fp == NULL)
 		{
 			printf("File opening failed\n");
@@ -144,6 +145,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+/*
 void equalize(float* restrict signal, float* output, int len)
 {
 	// Calculate FIR filter delay
@@ -174,7 +176,7 @@ void equalize(float* restrict signal, float* output, int len)
 	for(int i = 0; i < (len + NUM_TAPS - 1); i++)
 		temp[i] = 0.0;
 	convolve(signal, len, FILTER_2, NUM_TAPS, temp);
-	//#pragma SIMD_for
+	#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain2 * temp[i + delay];
 	//#pragma SIMD_for
@@ -200,6 +202,78 @@ void equalize(float* restrict signal, float* output, int len)
 		output[i] += gain5 * temp[i + delay];
 	heap_free(index, temp);
 }
+*/
+
+
+void equalize(float* restrict signal, float* output, int len)
+{
+	float gain1, gain2, gain3, gain4, gain5;
+	float* temp = NULL;
+	temp = (float *)heap_malloc(index, len*sizeof(float));
+	if(temp == NULL)
+	{
+		printf("Memory allocation failed (temp)\n");
+		return;
+	}
+	// Convert db gain into unitless gain
+	gain1 = pow(10, GAIN1/20);
+	gain2 = pow(10, GAIN2/20);
+	gain3 = pow(10, GAIN3/20);
+	gain4 = pow(10, GAIN4/20);
+	gain5 = pow(10, GAIN5/20);
+	//#pragma SIMD_for
+	for(int i = 0; i < (NUM_TAPS + 1); i++)
+		state[i] = 0.0;
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		temp[i] = 0.0;
+	fir(signal, temp, FILTER_1, state, len, NUM_TAPS);
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		output[i] += gain1 * temp[i];
+	//#pragma SIMD_for
+	for(int i = 0; i < (NUM_TAPS + 1); i++)
+		state[i] = 0.0;
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		temp[i] = 0.0;
+	fir(signal, temp, FILTER_2, state, len, NUM_TAPS);
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		output[i] += gain2 * temp[i];
+	//#pragma SIMD_for
+	for(int i = 0; i < (NUM_TAPS + 1); i++)
+		state[i] = 0.0;
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		temp[i] = 0.0;
+	fir(signal, temp, FILTER_3, state, len, NUM_TAPS);
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		output[i] += gain3 * temp[i];
+	//#pragma SIMD_for
+	for(int i = 0; i < (NUM_TAPS + 1); i++)
+		state[i] = 0.0;
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		temp[i] = 0.0;
+	fir(signal, temp, FILTER_4, state, len, NUM_TAPS);
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		output[i] += gain4 * temp[i];
+	//#pragma SIMD_for
+	for(int i = 0; i < (NUM_TAPS + 1); i++)
+		state[i] = 0.0;
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		temp[i] = 0.0;
+	fir(signal, temp, FILTER_5, state, len, NUM_TAPS);
+	//#pragma SIMD_for
+	for(int i = 0; i < len; i++)
+		output[i] += gain5 * temp[i];
+	heap_free(index, temp);
+}
+
 
 void wah_wah(float* restrict signal, float* output, int len)
 {
@@ -305,4 +379,5 @@ void tremolo(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] = (1 + alpha * mod_signal[i]) * signal[i];
+	heap_free(index, mod_signal);
 }

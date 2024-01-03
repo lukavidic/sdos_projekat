@@ -30,8 +30,8 @@
 								<inputType id="assembler.input.593438957" name="Assembler Source" superClass="assembler.input"/>
 							</tool>
 							<tool id="sharc.toolchain.compiler.2007939262" name="CrossCore SHARC C/C++ Compiler" superClass="sharc.toolchain.compiler">
-								<option id="compiler.option.optimization.458567264" name="Enable optimization (-O)" superClass="compiler.option.optimization" useByScannerDiscovery="false" value="false" valueType="boolean"/>
-								<option id="compiler.option.debugcode.258555857" name="Generate debug information (-g)" superClass="compiler.option.debugcode" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="compiler.option.optimization.458567264" name="Enable optimization (-O)" superClass="compiler.option.optimization" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="compiler.option.debugcode.258555857" name="Generate debug information (-g)" superClass="compiler.option.debugcode" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="compiler.option.proc.162757957" name="-proc" superClass="compiler.option.proc" value=" ADSP-21489" valueType="string"/>
 								<option id="compiler.option.sirevision.102357325" name="-si-revision" superClass="compiler.option.sirevision" value=" 0.2" valueType="string"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="compiler.option.preprocessdefs.1486262009" name="Preprocessor definitions (-D):" superClass="compiler.option.preprocessdefs" valueType="definedSymbols">
