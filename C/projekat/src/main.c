@@ -15,7 +15,7 @@
 #include "adi_initialize.h"
 
 //#define PRINT_OUTPUT
-#define PROFILING
+//#define PROFILING
 
 #define PI 3.141592
 
@@ -83,9 +83,17 @@ void flanger(float* restrict signal, float* output, int len);
  * */
 void tremolo(float* restrict signal, float* output, int len);
 
+
+// Reserve 500kB of SDRAM memory for signals
+#pragma section("seg_sdram")
+static char heap_mem[512000];
+
+// UNCOMMENT IF YOU WANT TO USE SRAM MEMORY (WARNING: SIMD FUNCTIONS GIVE WRONG RESULTS)
+/*
 // Reserve 500kB of SRAM memory for signals
 #pragma section("seg_sram")
 static char heap_mem[512000];
+*/
 
 float dm state[NUM_TAPS + 1];
 
@@ -130,7 +138,7 @@ int main(int argc, char *argv[])
 		PRINT_CYCLES("Broj ciklusa: ", end);
 	#endif
 	#ifdef PRINT_OUTPUT
-		fp = fopen("../output_files/equ_signal.txt", "w");
+		fp = fopen("../output_files/tmp_signal.txt", "w");
 		if(fp == NULL)
 		{
 			printf("File opening failed\n");
@@ -145,7 +153,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-/*
+/* SLOW IMPLEMENTATION
 void equalize(float* restrict signal, float* output, int len)
 {
 	// Calculate FIR filter delay
@@ -227,7 +235,7 @@ void equalize(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		temp[i] = 0.0;
-	fir(signal, temp, FILTER_1, state, len, NUM_TAPS);
+	firf(signal, temp, FILTER_1, state, len, NUM_TAPS);
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain1 * temp[i];
@@ -237,7 +245,7 @@ void equalize(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		temp[i] = 0.0;
-	fir(signal, temp, FILTER_2, state, len, NUM_TAPS);
+	firf(signal, temp, FILTER_2, state, len, NUM_TAPS);
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain2 * temp[i];
@@ -247,7 +255,7 @@ void equalize(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		temp[i] = 0.0;
-	fir(signal, temp, FILTER_3, state, len, NUM_TAPS);
+	firf(signal, temp, FILTER_3, state, len, NUM_TAPS);
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain3 * temp[i];
@@ -257,7 +265,7 @@ void equalize(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		temp[i] = 0.0;
-	fir(signal, temp, FILTER_4, state, len, NUM_TAPS);
+	firf(signal, temp, FILTER_4, state, len, NUM_TAPS);
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain4 * temp[i];
@@ -267,7 +275,7 @@ void equalize(float* restrict signal, float* output, int len)
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		temp[i] = 0.0;
-	fir(signal, temp, FILTER_5, state, len, NUM_TAPS);
+	firf(signal, temp, FILTER_5, state, len, NUM_TAPS);
 	//#pragma SIMD_for
 	for(int i = 0; i < len; i++)
 		output[i] += gain5 * temp[i];

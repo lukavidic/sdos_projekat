@@ -130,6 +130,7 @@ MEMORY
    mem_block3_dm32         { TYPE(DM RAM) START(0x000E0000) END(0x000E7FFF) WIDTH(32) }
    mem_sram                { TYPE(DM RAM ASYNCHRONOUS) START(0x0C000000) END(0x0C07FFFF) WIDTH(16) }
    mem_flash               { TYPE(DM RAM ASYNCHRONOUS) START(0x04000000) END(0x043FFFFF) WIDTH(8) }
+   mem_sdram         	   { TYPE(DM RAM) START(0x00200000) END(0x009FFFFF) WIDTH(32) }
    
    /*$VDSG<insert-new-memory-segments>                          */
    /* Text inserted between these $VDSG comments will be preserved */
@@ -533,6 +534,11 @@ PROCESSOR p0
          /*$VDSG<insert-input-sections-at-the-end-of-dxe_sram>  */
          
       } > mem_sram
+      
+      dxe_seg_sdram
+	  {
+		 INPUT_SECTIONS( $OBJECTS(seg_sdram) )
+	  } > mem_sdram
       
       
       /*$VDSG<insert-new-sections-at-the-end>                   */
