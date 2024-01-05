@@ -1,6 +1,6 @@
 # About the project
 <p align="justify">
-The goal of the project is implementation of audio (guitar) effects which can be applied to audio signals. Project contains implementations of four effects: equalizer, wah-wah, tremolo and flanger. All of these effects are implemented using both python (python subdirectory) and C (C subdirectory). Python program can be run on any personal computer. C program is written for targeted platform, ADSP-21489 but can be compiled on a personal computer with some modifications. Project is made as a part of a grade for university subject "Systems for digital signal processing".
+The goal of the project is implementation of audio (guitar) effects which can be applied to audio signals. Project contains implementations of four effects: equalizer, wah-wah, tremolo and flanger. All of these effects are implemented using both python (python subdirectory) and C (C subdirectory). Python program can be run on any personal computer. C program is written for targeted platform, ADSP-21489 but can be compiled with C compilet on a personal computer with some modifications. Project is made as a part of a grade for university subject "Systems for digital signal processing".
 </p>
 
 ## How to run the programs
