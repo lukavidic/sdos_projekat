@@ -9,7 +9,7 @@ const float SAMPLE_FREQ = 10000.0;
 
 /*
  * The test signal is a 3 second long composite periodic signal consisting of 9 sine waves
- *  with the following frequencies (in Hz) [50, 120, 260, 440, 520, 720, 1020, 1250, 1400]
+ * with the following frequencies (in Hz) [50, 120, 260, 440, 520, 720, 1020, 1250, 1400]
  */
 
 const float pm compound_signal[LEN] = {

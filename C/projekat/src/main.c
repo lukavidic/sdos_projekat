@@ -9,17 +9,36 @@
 #include <math.h>
 #include <string.h>
 #include <cycle_count.h>
+#include <SYSREG.h>
+#include <def21489.h>
 #include "compound_signal.h"
 #include "filter.h"
 #include "equ_filters.h"
 #include "adi_initialize.h"
 
-//#define PRINT_OUTPUT
-//#define PROFILING
+//#define PRINT_OUTPUT // Uncomment if you want to save output signal to a file
+//#define PROFILING // Uncomment if you want to check total cycles needed for an algorithm
 
 #define PI 3.141592
+#define ALGS_NUM 4
+#define GAIN_VALS_SIZE 11
+#define WAH_PARAMS_SIZE 5
+#define DELAY_VALS_SIZE 10
+#define ALPHA_VALS_SIZE 10
+#define F_MOD_VALS_SIZE 7
 
-// TODO: Try to implement parameter configuration with ADSP buttons
+const char ALGS[ALGS_NUM][10] = {"EQUALIZER", "WAH-WAH", "FLANGER", "TREMOLO"};
+const float GAIN_VALUES[GAIN_VALS_SIZE] = {-15.0, -12.0, -9.0, -6.0, -3.0, 0.0,
+											3.0, 6.0,9.0, 12.0, 15.0};
+const float DAMP_VALUES[WAH_PARAMS_SIZE] = {0.02, 0.04, 0.06, 0.08, 0.1};
+const float WAH_FREQ_VALUES[WAH_PARAMS_SIZE] = {1400.0, 1600.0, 1800.0, 2000.0, 2200.0};
+const float DELAY_VALUES[DELAY_VALS_SIZE] = {0.001, 0.002, 0.003, 0.004, 0.005,
+											 0.006, 0.007, 0.008, 0.009, 0.01};
+const float ALPHA_VALUES[ALPHA_VALS_SIZE] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+const float F_MOD_VALUES[F_MOD_VALS_SIZE] = {0.1, 0.5, 1, 5, 10, 15, 20};
+
+// Counter for button presses
+int param_counter = -1;
 
 // Gain parameters for each band in dB (default values)
 float GAIN1 = -12.0;
@@ -83,12 +102,44 @@ void flanger(float* restrict signal, float* output, int len);
  * */
 void tremolo(float* restrict signal, float* output, int len);
 
+/*
+ * @brief Uses ADSP-EzKit-Board buttons PB1 and PB2 for confirming and picking
+ * algorithm the user wants to use
+ * */
+void pick_effect(void);
+
+/*
+ * @brief Uses ADSP-EzKit-Board buttons PB1 and PB2 for confirming and picking
+ * equalizer gain parameters
+ * */
+void pick_equ_params(void);
+
+/*
+ * @brief Uses ADSP-EzKit-Board buttons PB1 and PB2 for confirming and picking
+ * wah-wah effect parameters
+ * */
+void pick_wah_params(void);
+
+/*
+ * @brief Uses ADSP-EzKit-Board buttons PB1 and PB2 for confirming and picking
+ * flanger effect parameters
+ * */
+void pick_flanger_params(void);
+
+/*
+ * @brief Uses ADSP-EzKit-Board buttons PB1 and PB2 for confirming and picking
+ * tremolo effect parameters
+ * */
+void pick_tremolo_params(void);
+
 
 // Reserve 500kB of SDRAM memory for signals
 #pragma section("seg_sdram")
 static char heap_mem[512000];
 
-// UNCOMMENT IF YOU WANT TO USE SRAM MEMORY (WARNING: SIMD FUNCTIONS GIVE WRONG RESULTS)
+/* UNCOMMENT THE FOLLOWING LINES IF YOU WANT TO USE SRAM MEMORY
+ * WARNING: USING #pragma SIMD_for GIVES WRONG RESULTS
+ * */
 /*
 // Reserve 500kB of SRAM memory for signals
 #pragma section("seg_sram")
@@ -126,19 +177,60 @@ int main(int argc, char *argv[])
 		signal[i] = compound_signal[i];
 	for(int i = 0; i < LEN; i++)
 		result[i] = 0.0;
-	#ifdef PROFILING
-		START_CYCLE_COUNT(start);
-	#endif
-	//wah_wah(signal, result, LEN);
-	//equalize(signal, result, LEN);
-	//flanger(signal, result, LEN);
-	//tremolo(signal, result, LEN);
-	#ifdef PROFILING
-		STOP_CYCLE_COUNT(end, start);
-		PRINT_CYCLES("Broj ciklusa: ", end);
-	#endif
+	/* The following two lines clear IRQ2EN and MSEN bits of SYSCTL register to configure
+	 * PB2 button as a general purpose I/O and store it's state in FLAGS register
+	 */
+	*pSYSCTL &= ~(IRQ2EN);
+	*pSYSCTL &= ~(MSEN);
+	pick_effect();
+	switch(param_counter)
+	{
+		case 0:
+			pick_equ_params();
+			#ifdef PROFILING
+				START_CYCLE_COUNT(start);
+			#endif
+			equalize(signal, result, LEN);
+			#ifdef PROFILING
+				STOP_CYCLE_COUNT(end, start);
+				PRINT_CYCLES("Broj ciklusa: ", end);
+			#endif
+			break;
+		case 1:
+			pick_wah_params();
+			#ifdef PROFILING
+				START_CYCLE_COUNT(start);
+			#endif
+			wah_wah(signal, result, LEN);
+			#ifdef PROFILING
+				STOP_CYCLE_COUNT(end, start);
+				PRINT_CYCLES("Broj ciklusa: ", end);
+			#endif
+			break;
+		case 2:
+			pick_flanger_params();
+			#ifdef PROFILING
+				START_CYCLE_COUNT(start);
+			#endif
+			flanger(signal, result, LEN);
+			#ifdef PROFILING
+				STOP_CYCLE_COUNT(end, start);
+				PRINT_CYCLES("Broj ciklusa: ", end);
+			#endif
+			break;
+		default:
+			pick_tremolo_params();
+			#ifdef PROFILING
+				START_CYCLE_COUNT(start);
+			#endif
+			tremolo(signal, result, LEN);
+			#ifdef PROFILING
+				STOP_CYCLE_COUNT(end, start);
+				PRINT_CYCLES("Broj ciklusa: ", end);
+			#endif
+	}
 	#ifdef PRINT_OUTPUT
-		fp = fopen("../output_files/tmp_signal.txt", "w");
+		fp = fopen("../output_files/out_signal.txt", "w");
 		if(fp == NULL)
 		{
 			printf("File opening failed\n");
@@ -388,4 +480,259 @@ void tremolo(float* restrict signal, float* output, int len)
 	for(int i = 0; i < len; i++)
 		output[i] = (1 + alpha * mod_signal[i]) * signal[i];
 	heap_free(index, mod_signal);
+}
+
+void pick_effect(void)
+{
+	printf("Pick the audio effect you want to apply: \n");
+	for(int i = 0; i < ALGS_NUM; i++)
+		printf("%d. %s\n", (i+1), ALGS[i]);
+	while(1){
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % ALGS_NUM;
+			printf("Pick: %s\n", ALGS[param_counter]);
+		}
+	}
+	if(param_counter < 0)
+		param_counter = 0;
+	printf("Picked algorithm: %s\n", ALGS[param_counter]);
+}
+
+void pick_equ_params(void)
+{
+	param_counter = -1;
+	printf("Pick the gain for the first band:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % GAIN_VALS_SIZE;
+			printf("Pick: %.1f dB\n", GAIN_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked gain1: %.1f dB\n", GAIN_VALUES[param_counter]);
+		GAIN1 = GAIN_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, gain1: %.1f dB\n", GAIN1);
+	}
+	param_counter = -1;
+	printf("Pick the gain for the second band:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % GAIN_VALS_SIZE;
+			printf("Pick: %.1f dB\n", GAIN_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked gain2: %.1f dB\n", GAIN_VALUES[param_counter]);
+		GAIN2 = GAIN_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, gain2: %.1f dB\n", GAIN2);
+	}
+	param_counter = -1;
+	printf("Pick the gain for the third band:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % GAIN_VALS_SIZE;
+			printf("Pick: %.1f dB\n", GAIN_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked gain3: %.1f dB\n", GAIN_VALUES[param_counter]);
+		GAIN3 = GAIN_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, gain1: %.1f dB\n", GAIN3);
+	}
+	param_counter = -1;
+	printf("Pick the gain for the fourth band:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % GAIN_VALS_SIZE;
+			printf("Pick: %.1f dB\n", GAIN_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked gain4: %.1f dB\n", GAIN_VALUES[param_counter]);
+		GAIN4 = GAIN_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, gain1: %.1f dB\n", GAIN4);
+	}
+	param_counter = -1;
+	printf("Pick the gain for the fifth band:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % GAIN_VALS_SIZE;
+			printf("Pick: %.1f dB\n", GAIN_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked gain5: %.1f dB\n", GAIN_VALUES[param_counter]);
+		GAIN5 = GAIN_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, gain5: %.1f dB\n", GAIN5);
+	}
+}
+
+void pick_wah_params(void)
+{
+	param_counter = -1;
+	printf("Pick the damping factor:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % WAH_PARAMS_SIZE;
+			printf("Pick: %.2f\n", DAMP_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked damping factor: %.2f\n", DAMP_VALUES[param_counter]);
+		damp = DAMP_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, damping factor: %.2f\n", damp);
+	}
+	param_counter = -1;
+	printf("Pick the wah frequency:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % WAH_PARAMS_SIZE;
+			printf("Pick: %.1f Hz\n", WAH_FREQ_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked wah frequency: %.1f Hz\n", WAH_FREQ_VALUES[param_counter]);
+		wah_freq = WAH_FREQ_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, wah frequency: %.1f Hz\n", wah_freq);
+	}
+}
+
+void pick_flanger_params(void)
+{
+	param_counter = -1;
+	printf("Pick delay value:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % DELAY_VALS_SIZE;
+			printf("Pick: %.3f ms\n", DELAY_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked delay value: %.3f ms\n", DELAY_VALUES[param_counter]);
+		delay = DELAY_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, delay: %.3f ms\n", delay);
+	}
+}
+void pick_tremolo_params(void)
+{
+	param_counter = -1;
+	printf("Pick modulation depth factor:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % ALPHA_VALS_SIZE;
+			printf("Pick: %.1f\n", ALPHA_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked modulation depth factor: %.1f\n", ALPHA_VALUES[param_counter]);
+		alpha = ALPHA_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, modulation depth factor: %.1f\n", alpha);
+	}
+	param_counter = -1;
+	printf("Pick the modulation frequency:\n");
+	while(1)
+	{
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG1))
+			break;
+		if(sysreg_bit_tst(sysreg_FLAGS, FLG2))
+		{
+			param_counter++;
+			param_counter = param_counter % F_MOD_VALS_SIZE;
+			printf("Pick: %.1f Hz\n", F_MOD_VALUES[param_counter]);
+		}
+	}
+	if(param_counter >= 0)
+	{
+		printf("Picked modulation frequency: %.1f Hz\n", F_MOD_VALUES[param_counter]);
+		f_mod = F_MOD_VALUES[param_counter];
+	}
+	else
+	{
+		printf("Used default value, modulation frequency: %.1f Hz\n", f_mod);
+	}
 }
