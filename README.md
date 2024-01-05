@@ -17,5 +17,5 @@ To run C program you need to install CrossCore Embedded Studio (CCES) developmen
 ## Want to test your own audio signals ?
 <p align="justify">
 You can load your signals into notebook file by using any python integrated function to read audio files (for example .wav files you can read using scipy wavfile.read function). Be careful to load sample rate and audio samples to sample_freq variable and compound_signal array respectively (Check the examples where acoustic.wav is being loaded).
-To apply effects in CCES project you need to export raw audio signal samples into C array and define it's length into a C header file compound.signal.h. Be aware of memory limitations...
+To apply effects in CCES project you need to export raw audio signal samples into C array and define it's length into a C header file compound_signal.h. Be aware of memory limitations...
 </p>
