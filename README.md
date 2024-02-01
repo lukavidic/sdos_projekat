@@ -11,7 +11,7 @@ Python implementation is contained in a jupyter notebook file "Efekti.ipynb". To
 
 ### C
 <p align="justify">
-To run the C program you need to install CrossCore Embedded Studio (CCES) development enviroment and open the C subfolder as a project inside it. Apart from the CCES you need ADSP-21489 EzKit board as algorithm selection and parameter configuration is done by pushing buttons available on the platform. After loading the project and connecting the board run the application by clicking Debug.
+To run the C program you need to install CrossCore Embedded Studio (CCES) development enviroment and open the C subfolder as a project inside it. Apart from the CCES you need ADSP-21489 EzKit board as algorithm selection and parameter configuration is done by pushing buttons available on the platform. After loading the project and connecting the board run the application by clicking Debug. When the application starts you will first need to choose the desired algorithm. This is done by pressing two buttons on ADSP-21489 EzKit board which are labeled on board by SW8 and SW9. You can select between the algorithms by pressing SW9 button. To confirm the selection press SW8 button. After choosing the algorithm, you need to pick it's parameters using the very same buttons on identical manner. When you pick all the parameters, algorithm starts operating. If you want to save the results to a file, uncomment the PRINT_OUTPUT directive before running the program. If you want to check the speed in cycles, uncomment the PROFILING directive before running the program.
 </p>
 
 ## Want to test your own audio signals ?
